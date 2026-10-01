@@ -133,7 +133,4 @@ Use two accounts — one **household**, one **collector** (two browser tabs work
 
 ---
 
-## Team
-**Team Doctor Strange — Section B**
-
 Mobile Application Development course project.
