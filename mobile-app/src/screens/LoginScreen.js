@@ -24,6 +24,7 @@ import {
   logout,
   ROLES,
 } from '../services/userService';
+import { abandonAddAccount, dedupeActiveAccount } from '../services/accountService';
 import { isValidEmail, isValidPhone, normalizePhone } from '../utils/helpers';
 import { AppButton, FormField } from '../components/ui';
 import colors from '../constants/colors';
@@ -50,7 +51,10 @@ export function RoleOption({ role, selected, onPress }) {
   );
 }
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, route }) {
+  // When opened from the account switcher, this signs in an additional account
+  const addingAccount = !!route?.params?.addingAccount;
+  const previousSlot = route?.params?.previousSlot;
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -74,6 +78,29 @@ export default function LoginScreen({ navigation }) {
       .catch(() => {});
   }, [navigation]);
 
+  // Leaving "add account" without signing in returns to the previous account
+  useEffect(() => {
+    if (!addingAccount) return undefined;
+    return navigation.addListener('beforeRemove', () => {
+      abandonAddAccount(previousSlot);
+    });
+  }, [navigation, addingAccount, previousSlot]);
+
+  /** Go to the right home screen after a successful sign-in */
+  const enterApp = async (user) => {
+    if (await dedupeActiveAccount()) {
+      Alert.alert('আগে থেকেই যোগ করা', 'এই অ্যাকাউন্টে এই ডিভাইসে আগে থেকেই লগইন করা আছে। সেটিতে নিয়ে যাওয়া হচ্ছে।');
+      const existing = await getUserProfile(auth.currentUser?.uid);
+      if (existing) {
+        goHome(navigation, existing.role);
+        return;
+      }
+    }
+    const profile = await getUserProfile(user.uid);
+    if (profile) goHome(navigation, profile.role);
+    else setSetupUser(user);
+  };
+
   const handleLogin = async () => {
     const next = {};
     if (!isValidEmail(email)) next.email = 'সঠিক ইমেইল লিখুন';
@@ -84,9 +111,7 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const profile = await getUserProfile(cred.user.uid);
-      if (profile) goHome(navigation, profile.role);
-      else setSetupUser(cred.user);
+      await enterApp(cred.user);
     } catch (error) {
       Alert.alert('প্রবেশ ব্যর্থ', authErrorMessage(error, 'প্রবেশ ব্যর্থ হয়েছে'));
     } finally {
@@ -112,9 +137,7 @@ export default function LoginScreen({ navigation }) {
     try {
       const cred = await signInWithGoogle();
       if (!cred) return; // cancelled
-      const profile = await getUserProfile(cred.user.uid);
-      if (profile) goHome(navigation, profile.role);
-      else setSetupUser(cred.user);
+      await enterApp(cred.user);
     } catch (error) {
       Alert.alert('Google প্রবেশ ব্যর্থ', authErrorMessage(error, 'Google দিয়ে প্রবেশ করা যায়নি'));
     } finally {
@@ -158,6 +181,13 @@ export default function LoginScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {addingAccount ? (
+            <TouchableOpacity style={[styles.cancelAdd, { top: insets.top + spacing.md }]} onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={20} color={colors.white} />
+              <Text style={styles.cancelAddText}>বাতিল</Text>
+            </TouchableOpacity>
+          ) : null}
+
           <View style={styles.brand}>
             <View style={styles.logo}>
               <MaterialCommunityIcons name="recycle" size={44} color={colors.primary} />
@@ -167,8 +197,12 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.title}>স্বাগতম 👋</Text>
-            <Text style={styles.subtitle}>আপনার অ্যাকাউন্টে প্রবেশ করুন</Text>
+            <Text style={styles.title}>{addingAccount ? 'আরেকটি অ্যাকাউন্ট' : 'স্বাগতম 👋'}</Text>
+            <Text style={styles.subtitle}>
+              {addingAccount
+                ? 'অন্য অ্যাকাউন্টে প্রবেশ করুন — আগের অ্যাকাউন্টেও লগইন থাকবে'
+                : 'আপনার অ্যাকাউন্টে প্রবেশ করুন'}
+            </Text>
 
             <FormField
               label="ইমেইল"
@@ -267,6 +301,19 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: spacing.xl, justifyContent: 'center' },
+  cancelAdd: {
+    position: 'absolute',
+    left: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    zIndex: 2,
+  },
+  cancelAddText: { color: colors.white, fontWeight: '700', fontSize: font.sm + 1 },
   brand: { alignItems: 'center', marginBottom: spacing.xxl },
   logo: {
     width: 84,

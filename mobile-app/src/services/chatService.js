@@ -10,7 +10,8 @@ import {
 import { db } from '../config/firebase';
 import { toDate } from '../utils/helpers';
 
-const messagesRef = collection(db, 'messages');
+// Resolved on every call so it always uses the active account's connection
+const messagesRef = () => collection(db, 'messages');
 
 export const getConversationId = (uidA, uidB) => [uidA, uidB].sort().join('_');
 
@@ -27,7 +28,7 @@ export const subscribeToConversation = (conversationId, uid, onMessages, onError
   const emit = () => onMessages([...sent, ...received].sort(byOldest));
 
   const unsubSent = onSnapshot(
-    query(messagesRef, where('conversationId', '==', conversationId), where('senderId', '==', uid)),
+    query(messagesRef(), where('conversationId', '==', conversationId), where('senderId', '==', uid)),
     (snap) => {
       sent = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       emit();
@@ -35,7 +36,7 @@ export const subscribeToConversation = (conversationId, uid, onMessages, onError
     onError
   );
   const unsubReceived = onSnapshot(
-    query(messagesRef, where('conversationId', '==', conversationId), where('recipientId', '==', uid)),
+    query(messagesRef(), where('conversationId', '==', conversationId), where('recipientId', '==', uid)),
     (snap) => {
       received = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       emit();
@@ -54,7 +55,7 @@ export const subscribeToConversation = (conversationId, uid, onMessages, onError
 };
 
 export const sendMessage = ({ senderId, recipientId, text, requestId }) =>
-  addDoc(messagesRef, {
+  addDoc(messagesRef(), {
     conversationId: getConversationId(senderId, recipientId),
     senderId,
     recipientId,
@@ -67,8 +68,8 @@ export const sendMessage = ({ senderId, recipientId, text, requestId }) =>
 /** Build the conversation list for a user from messages they sent/received */
 export const getConversations = async (uid) => {
   const [sentSnap, receivedSnap] = await Promise.all([
-    getDocs(query(messagesRef, where('senderId', '==', uid))),
-    getDocs(query(messagesRef, where('recipientId', '==', uid))),
+    getDocs(query(messagesRef(), where('senderId', '==', uid))),
+    getDocs(query(messagesRef(), where('recipientId', '==', uid))),
   ]);
 
   const convMap = new Map();
@@ -102,6 +103,6 @@ export const getConversations = async (uid) => {
 };
 
 export const getUnreadCount = async (uid) => {
-  const snap = await getDocs(query(messagesRef, where('recipientId', '==', uid), where('read', '==', false)));
+  const snap = await getDocs(query(messagesRef(), where('recipientId', '==', uid), where('read', '==', false)));
   return snap.size;
 };

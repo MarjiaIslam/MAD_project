@@ -73,6 +73,9 @@ export const signInWithGoogle = async () => {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
     }
 
+    // Clear the module's remembered Google account so the picker always
+    // appears — needed when adding a second account on the same device.
+    await GoogleSignin.signOut().catch(() => {});
     const response = await GoogleSignin.signIn();
     if (!isSuccessResponse(response)) return null; // user dismissed the picker
 

@@ -14,6 +14,7 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { signInWithGoogle } from '../utils/googleAuth';
 import { authErrorMessage, createUserProfile, getUserProfile, goHome, ROLES } from '../services/userService';
+import { dedupeActiveAccount } from '../services/accountService';
 import { isValidEmail, isValidPhone, normalizePhone } from '../utils/helpers';
 import { AppButton, AppHeader, FormField } from '../components/ui';
 import { RoleOption } from './LoginScreen';
@@ -72,6 +73,12 @@ export default function SignupScreen({ navigation }) {
     try {
       const cred = await signInWithGoogle();
       if (!cred) return; // cancelled
+      if (await dedupeActiveAccount()) {
+        const already = await getUserProfile(auth.currentUser?.uid);
+        Alert.alert('আগে থেকেই যোগ করা', 'এই অ্যাকাউন্টে এই ডিভাইসে আগে থেকেই লগইন করা আছে।');
+        if (already) goHome(navigation, already.role);
+        return;
+      }
       const existing = await getUserProfile(cred.user.uid);
       if (existing) {
         Alert.alert('স্বাগতম ফিরে!', 'এই Google অ্যাকাউন্ট দিয়ে আগেই নিবন্ধন করা হয়েছে।');

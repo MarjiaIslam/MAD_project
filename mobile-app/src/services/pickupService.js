@@ -12,7 +12,8 @@ import {
 import { auth, db } from '../config/firebase';
 import { calculateEarnings, toDate } from '../utils/helpers';
 
-const pickupsRef = collection(db, 'pickupRequests');
+// Resolved on every call so it always uses the active account's connection
+const pickupsRef = () => collection(db, 'pickupRequests');
 
 const byNewest = (field = 'createdAt') => (a, b) =>
   (toDate(b[field])?.getTime() || 0) - (toDate(a[field])?.getTime() || 0);
@@ -23,17 +24,17 @@ const mapDocs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 // so they work without any composite Firestore indexes.
 
 export const getHouseholdPickups = async (uid) => {
-  const snap = await getDocs(query(pickupsRef, where('userId', '==', uid)));
+  const snap = await getDocs(query(pickupsRef(), where('userId', '==', uid)));
   return mapDocs(snap).sort(byNewest());
 };
 
 export const getCollectorPickups = async (uid) => {
-  const snap = await getDocs(query(pickupsRef, where('collectorId', '==', uid)));
+  const snap = await getDocs(query(pickupsRef(), where('collectorId', '==', uid)));
   return mapDocs(snap).sort(byNewest());
 };
 
 export const getPendingPickups = async () => {
-  const snap = await getDocs(query(pickupsRef, where('status', '==', 'pending')));
+  const snap = await getDocs(query(pickupsRef(), where('status', '==', 'pending')));
   return mapDocs(snap).sort(byNewest());
 };
 
@@ -58,7 +59,7 @@ export const createPickup = async ({ materials, images, schedule, address, phone
     max: m.max,
   }));
 
-  const ref = await addDoc(pickupsRef, {
+  const ref = await addDoc(pickupsRef(), {
     userId: user.uid,
     userEmail: user.email || '',
     userName: userName || '',

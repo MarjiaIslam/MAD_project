@@ -11,6 +11,7 @@ import { getCollectorPickups, getHouseholdPickups } from '../../services/pickupS
 import { getCollectorRating } from '../../services/reviewService';
 import { AppButton, AppHeader, Avatar, BottomNav, Card, FormField, SectionHeader } from '../../components/ui';
 import { collectorNavItems, householdNavItems } from '../../navigation/navItems';
+import AccountSwitcher from '../../components/AccountSwitcher';
 import { formatPhone, formatTaka, isValidPhone, normalizePhone, toBnDigits } from '../../utils/helpers';
 import colors from '../../constants/colors';
 import { font, radius, spacing } from '../../constants/theme';
@@ -58,6 +59,7 @@ export default function ProfileScreen({ navigation }) {
   const [newPw, setNewPw] = useState('');
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const isCollector = profile?.role === ROLES.COLLECTOR;
   const isEmailUser = auth.currentUser?.providerData?.some((p) => p.providerId === 'password');
@@ -209,6 +211,7 @@ export default function ProfileScreen({ navigation }) {
 
         <SectionHeader title="অ্যাকাউন্ট" />
         <Card style={styles.menuCard}>
+          <MenuItem icon="swap-horizontal-outline" label="অ্যাকাউন্ট পরিবর্তন / যোগ করুন" onPress={() => setSwitcherOpen(true)} />
           <MenuItem icon="create-outline" label="প্রোফাইল সম্পাদনা" onPress={openEdit} />
           {isEmailUser ? (
             <MenuItem icon="lock-closed-outline" label="পাসওয়ার্ড পরিবর্তন" onPress={() => { setNewPw(''); setErrors({}); setPwOpen(true); }} />
@@ -234,6 +237,8 @@ export default function ProfileScreen({ navigation }) {
       </ScrollView>
 
       <BottomNav items={isCollector ? collectorNavItems(navigation) : householdNavItems(navigation)} active="profile" />
+
+      <AccountSwitcher visible={switcherOpen} onClose={() => setSwitcherOpen(false)} navigation={navigation} />
 
       <Sheet visible={editOpen} title="প্রোফাইল সম্পাদনা" onClose={() => setEditOpen(false)}>
         <FormField label="নাম" icon="person-outline" value={editName} onChangeText={setEditName} error={errors.name} />

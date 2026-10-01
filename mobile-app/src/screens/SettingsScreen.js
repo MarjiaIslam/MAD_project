@@ -6,6 +6,7 @@ import { auth } from '../config/firebase';
 import { Alert } from '../utils/alert';
 import { getCurrentUserProfile, logout } from '../services/userService';
 import { AppHeader, Avatar, Card, SectionHeader } from '../components/ui';
+import AccountSwitcher from '../components/AccountSwitcher';
 import colors from '../constants/colors';
 import { font, radius, spacing } from '../constants/theme';
 
@@ -30,6 +31,7 @@ function Row({ icon, iconColor = colors.primary, title, subtitle, onPress, right
 export default function SettingsScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
   const [settings, setSettings] = useState({ notificationsEnabled: true, soundEnabled: true });
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   useEffect(() => {
     getCurrentUserProfile().then(setProfile).catch(() => {});
@@ -85,6 +87,12 @@ export default function SettingsScreen({ navigation }) {
 
         <SectionHeader title="অ্যাকাউন্ট" />
         <Card style={styles.group}>
+          <Row
+            icon="swap-horizontal-outline"
+            title="অ্যাকাউন্ট পরিবর্তন / যোগ করুন"
+            subtitle="একই ডিভাইসে একাধিক অ্যাকাউন্ট"
+            onPress={() => setSwitcherOpen(true)}
+          />
           <Row icon="person-outline" title="প্রোফাইল সম্পাদনা" subtitle="নাম, ফোন, ঠিকানা" onPress={() => navigation.navigate('Profile')} />
           {isCollector ? (
             <Row icon="wallet-outline" title="পেমেন্ট ও লেনদেন" subtitle="নগদ, মোবাইল ওয়ালেট, ব্যাংক (ডেমো)" onPress={() => navigation.navigate('Earnings')} />
@@ -140,6 +148,7 @@ export default function SettingsScreen({ navigation }) {
           <Text style={styles.logoutText}>লগআউট</Text>
         </TouchableOpacity>
       </ScrollView>
+      <AccountSwitcher visible={switcherOpen} onClose={() => setSwitcherOpen(false)} navigation={navigation} />
     </View>
   );
 }

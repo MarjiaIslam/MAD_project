@@ -2,35 +2,36 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { initAccounts } from '../services/accountService';
 import { getUserProfile, homeRouteFor } from '../services/userService';
 import colors from '../constants/colors';
 import { font, spacing } from '../constants/theme';
 
 /**
- * Restores the saved Firebase session (persisted with AsyncStorage on native)
- * and sends the user straight to the right home screen, or to Login.
+ * Restores every saved Firebase session (one per signed-in account), picks
+ * the last active account and sends the user to the right home screen, or
+ * to Login.
  */
 export default function SplashScreen({ navigation }) {
   useEffect(() => {
-    let handled = false;
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (handled) return;
-      handled = true;
+    let mounted = true;
+    (async () => {
       let route = 'Login';
-      if (user) {
-        try {
+      try {
+        const user = await initAccounts();
+        if (user) {
           const profile = await getUserProfile(user.uid);
           // A signed-in user without a profile finishes setup on the Login screen
           route = profile ? homeRouteFor(profile.role) : 'Login';
-        } catch (error) {
-          route = 'Login';
         }
+      } catch (error) {
+        route = 'Login';
       }
-      navigation.reset({ index: 0, routes: [{ name: route }] });
-    });
-    return unsubscribe;
+      if (mounted) navigation.reset({ index: 0, routes: [{ name: route }] });
+    })();
+    return () => {
+      mounted = false;
+    };
   }, [navigation]);
 
   return (

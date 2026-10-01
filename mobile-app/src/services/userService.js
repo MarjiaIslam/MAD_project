@@ -1,7 +1,7 @@
-import { signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { signOutGoogle } from '../utils/googleAuth';
+import { signOutActiveAccount } from './accountService';
 
 export const ROLES = { HOUSEHOLD: 'household', COLLECTOR: 'collector' };
 
@@ -38,10 +38,20 @@ export const updateUserProfile = (uid, { name, phone, address }) =>
 export const goHome = (navigation, role) =>
   navigation.reset({ index: 0, routes: [{ name: homeRouteFor(role) }] });
 
-/** Sign out of Google + Firebase and return to Login with a clean stack */
+/**
+ * Sign the active account out of Google + Firebase. If another account is
+ * still signed in on this device, switch to it; otherwise return to Login.
+ */
 export const logout = async (navigation) => {
   await signOutGoogle();
-  await signOut(auth);
+  const next = await signOutActiveAccount();
+  if (next) {
+    const profile = await getUserProfile(next.uid).catch(() => null);
+    if (profile) {
+      goHome(navigation, profile.role);
+      return;
+    }
+  }
   navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
 };
 
